@@ -49,7 +49,7 @@ def chunk_data(data,chunk_size = 2000,chunk_overlap = 200):
         chunk_overlap = chunk_overlap
     )
     chunks = text_splitter.split_documents(data)
-    print(f"I am length of chunks{chunks}")
+    print(f"I am length of chunks{len(chunks)}")
     return chunks
 
 def create_embeddings(chunks):

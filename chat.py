@@ -211,6 +211,7 @@ if __name__ == "__main__":
     st.write(
     "Set environment variables:",
     os.environ["GROQ_API_KEY"] == st.secrets["GROQ_API_KEY"],
+    os.environ["PINECONE_API_KEY"] == st.secrets["PINECONE_API_KEY"]
     )
 
     with st.sidebar:

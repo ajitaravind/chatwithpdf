@@ -10,7 +10,11 @@ from langchain.schema import(
     AIMessage
 )
 
+from langchain_community.chat_message_histories import SQLChatMessageHistory
+
+
 import os
+import time
 
 from dotenv import load_dotenv,find_dotenv
 load_dotenv(find_dotenv(),override = True)
@@ -38,13 +42,14 @@ def load_document(file):
     data = loader.load()
     return data
 
-def chunk_data(data,chunk_size = 1024,chunk_overlap = 200):
+def chunk_data(data,chunk_size = 2000,chunk_overlap = 200):
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size = chunk_size,
         chunk_overlap = chunk_overlap
     )
     chunks = text_splitter.split_documents(data)
+    print(f"I am length of chunks{chunks}")
     return chunks
 
 def create_embeddings(chunks):
@@ -65,7 +70,7 @@ def ask_and_get_answer(question,k = 4):
     from langchain_core.output_parsers import StrOutputParser
     
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    llm = ChatGroq(temperature=0, model_name="mixtral-8x7b-32768")
+    llm = ChatGroq(temperature=0, model_name="llama3-70b-8192")
     db3 = Chroma(persist_directory="mydb", embedding_function=embeddings)
     retriever = db3.as_retriever(search_type = 'similarity',search_kwargs={'k': k})
 
@@ -91,9 +96,7 @@ def ask_and_get_answer(question,k = 4):
     memory = ConversationBufferWindowMemory(
         k=2,
         memory_key = "chat_history", 
-        chat_memory = SQLChatMessageHistory( 
-        session_id="test_session", connection_string="sqlite:///sqlite.db"
-        )
+        chat_memory = st.session_state['chat_message_history']
         ,
         return_messages = True,
         verbose = True
@@ -138,6 +141,17 @@ def clear_history():
     st.session_state["input"] = ""
 
 
+def clear_chat_history(chat_message_history):
+    if chat_message_history.messages:
+        chat_message_history.clear()
+        success = st.success("Chat history cleared successfully.")
+        time.sleep(1) 
+        success.empty()
+    else:
+        alert = st.warning("No chat history to clear.")
+        time.sleep(1) 
+        alert.empty() 
+
 if __name__ == "__main__":
    
     import os
@@ -149,13 +163,21 @@ if __name__ == "__main__":
     page_icon='🤖'
     )
     
-   
     if 'uploaded_status' not in st.session_state:
         st.session_state.uploaded_status = ""
         
     if 'vector_store' not in st.session_state:
         st.session_state.vector_store = ""
 
+    if 'clear_history' not in st.session_state:
+        st.session_state['clear_history'] = False  
+        
+    if 'chat_message_history' not in st.session_state: #sqlite history
+        chat_message_history = SQLChatMessageHistory(
+        session_id="test_session", connection_string="sqlite:///sqlite.db"
+        )
+        st.session_state['chat_message_history'] = chat_message_history     
+    
     st.subheader('Chat with any PDF 🤖')
     st.write("")
     
@@ -168,8 +190,8 @@ if __name__ == "__main__":
         uploaded_file = st.file_uploader('Upload a file:', type = ['pdf','docx','txt'],accept_multiple_files = True)
         # print(uploaded_file)
 
-        chunk_size = st.number_input('Chunk size:',min_value = 100,max_value = 2048,value = 1024,on_change = clear_history)
-        k = st.number_input('k',min_value = 1, max_value = 20, value = 4,on_change = clear_history)
+        chunk_size = st.number_input('Chunk size:',min_value = 100,max_value = 2048,value = 2000,on_change = clear_history)
+        k = st.number_input('k',min_value = 1, max_value = 20, value = 6,on_change = clear_history)
         add_data = st.button('Add Data',on_click = clear_history)
         if uploaded_file and add_data:
             with st.spinner('Reading, chunking and embedding file...'):
@@ -184,12 +206,17 @@ if __name__ == "__main__":
                     st.write(f'Embedding completed for file {file_name}')
                     st.session_state.vs = vector_store
                 st.success('File uploaded, chunked and embedded successfully')
+                print('File uploaded, chunked and embedded successfully')
                 st.session_state.uploaded_status = True
                 print(st.session_state.uploaded_status)
                 
        
     if st.session_state.uploaded_status == True:
         
+        if st.button("Clear chat history"): 
+            clear_chat_history(st.session_state['chat_message_history'])
+        
+        st.session_state['clear_history'] = True  
         if "messages" not in st.session_state:
             st.session_state.messages = [AIMessage(content="Hello, how can I help you?")]  
 

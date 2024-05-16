@@ -148,7 +148,8 @@ if __name__ == "__main__":
     page_title='Chat with any PDF',
     page_icon='🤖'
     )
-        
+    
+   
     if 'uploaded_status' not in st.session_state:
         st.session_state.uploaded_status = ""
         
@@ -156,6 +157,12 @@ if __name__ == "__main__":
         st.session_state.vector_store = ""
 
     st.subheader('Chat with any PDF 🤖')
+    st.write("")
+    
+    st.write(
+    "Set environment variables:",
+    os.environ["GROQ_API_KEY"] == st.secrets["GROQ_API_KEY"],
+    )
 
     with st.sidebar:
         uploaded_file = st.file_uploader('Upload a file:', type = ['pdf','docx','txt'],accept_multiple_files = True)

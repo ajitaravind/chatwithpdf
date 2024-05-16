@@ -2,3 +2,4 @@
 sqlite.db
 mydb/
 HAI_AI-Index-Report-2024.pdf
+.streamlit/secrets.toml

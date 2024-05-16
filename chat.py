@@ -102,7 +102,16 @@ def ask_and_get_answer(question,k = 4):
     retriever = db3.as_retriever(search_type = 'similarity',search_kwargs={'k': k})
 
     rephraser_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
-    Return only the question, nothing else.
+    If the question makes sense independently without additional context, respond with the original question.
+    Examples: 
+    "what are the key insights from the report" --> "what are the key insights from the report"
+    "What is the impact of AI in healthcare" --> "What is the impact of AI in healthcare"
+    
+    Examples where the question needs to be rephrased.
+    "What is its acceleration" --> "What is the acceleration of XYX"
+    
+    Important:
+    Return only the question, nothing else.No need to give explaination or justification.
         Chat History:
         {chat_history}
         Follow Up Input: {question}

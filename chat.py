@@ -3,7 +3,8 @@ from streamlit_chat import message
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
-from langchain_community.vectorstores import Chroma
+from langchain_pinecone import PineconeVectorStore
+import pinecone
 
 from langchain.schema import(
     HumanMessage,
@@ -18,6 +19,8 @@ import time
 
 from dotenv import load_dotenv,find_dotenv
 load_dotenv(find_dotenv(),override = True)
+
+index_name = "genericdb"
 
 def load_document(file):
     import os
@@ -54,10 +57,34 @@ def chunk_data(data,chunk_size = 2000,chunk_overlap = 200):
 
 def create_embeddings(chunks):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    import os
+    from pinecone import Pinecone,ServerlessSpec
 
-    vector_store = Chroma.from_documents(chunks,embeddings,persist_directory = "mydb")
-    st.session_state.vector_store = vector_store
-    return vector_store
+    pc = Pinecone(
+        api_key=os.environ.get("PINECONE_API_KEY")
+    )
+    
+    if index_name not in pc.list_indexes().names():
+        print(f'Creating the index {index_name} and the  embeddings')
+
+        pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+        pc.create_index(
+        name="genericdb",
+        dimension=384, # Replace with your model dimensions
+        metric="cosine", # Replace with your model metric
+        spec=ServerlessSpec(
+          cloud='aws', 
+          region='us-east-1'
+             ) 
+        ) 
+                     
+        PineconeVectorStore.from_documents(
+                chunks, embeddings, index_name=index_name
+            )
+    else:
+        print(f'The index {index_name} already exist')
+     
+    return 
 
 def ask_and_get_answer(question,k = 4):
     from langchain_groq import ChatGroq
@@ -71,7 +98,7 @@ def ask_and_get_answer(question,k = 4):
     
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     llm = ChatGroq(temperature=0, model_name="llama3-70b-8192")
-    db3 = Chroma(persist_directory="mydb", embedding_function=embeddings)
+    db3 =  PineconeVectorStore.from_existing_index(index_name, embeddings)
     retriever = db3.as_retriever(search_type = 'similarity',search_kwargs={'k': k})
 
     rephraser_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
@@ -202,9 +229,8 @@ if __name__ == "__main__":
                         f.write(bytes_data)
                     data = load_document(file_name)
                     chunks = chunk_data(data,chunk_size=chunk_size)
-                    vector_store = create_embeddings(chunks)
+                    create_embeddings(chunks)
                     st.write(f'Embedding completed for file {file_name}')
-                    st.session_state.vs = vector_store
                 st.success('File uploaded, chunked and embedded successfully')
                 print('File uploaded, chunked and embedded successfully')
                 st.session_state.uploaded_status = True

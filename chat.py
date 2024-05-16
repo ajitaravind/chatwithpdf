@@ -38,7 +38,7 @@ def load_document(file):
     data = loader.load()
     return data
 
-def chunk_data(data,chunk_size = 512,chunk_overlap = 100):
+def chunk_data(data,chunk_size = 1024,chunk_overlap = 200):
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size = chunk_size,
@@ -54,24 +54,23 @@ def create_embeddings(chunks):
     st.session_state.vector_store = vector_store
     return vector_store
 
-def ask_and_get_answer(q,k = 3):
-    from langchain.chains import RetrievalQA
+def ask_and_get_answer(question,k = 4):
     from langchain_groq import ChatGroq
 
     from langchain.memory import ConversationBufferWindowMemory
     from langchain_community.chat_message_histories import SQLChatMessageHistory
     from langchain_core.runnables import RunnableLambda, RunnablePassthrough,RunnableParallel
     from langchain.prompts import PromptTemplate
-    from langchain.prompts import MessagesPlaceholder
     from langchain_core.prompts import PromptTemplate,ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     
-
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     llm = ChatGroq(temperature=0, model_name="mixtral-8x7b-32768")
-    vector_store = st.session_state.vector_store 
-    retriever = vector_store.as_retriever(search_type = 'similarity',search_kwargs={'k': k})
+    db3 = Chroma(persist_directory="mydb", embedding_function=embeddings)
+    retriever = db3.as_retriever(search_type = 'similarity',search_kwargs={'k': k})
 
     rephraser_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+    Return only the question, nothing else.
         Chat History:
         {chat_history}
         Follow Up Input: {question}
@@ -83,8 +82,7 @@ def ask_and_get_answer(q,k = 3):
         {rephrased_question}
         Below is relevant information you can use to answer the user question. Be as detailed as necessary \
         but for long answers, always try to give the response as bullet points. Ensure that you answer the user question\
-        only from the given context and cite all the URLs that are relevant to the user question next to the information\
-        they support.If you don't know the answer, say you don't know, don't invent answers.
+        only from the given context. If you don't know the answer, say you don't know, don't invent answers.
         Context:
         {context}
         """
@@ -128,8 +126,8 @@ def ask_and_get_answer(q,k = 3):
             
         )
     
-    result = qa_chain.invoke(q)
-    memory.save_context({"input": q}, {"output": result})
+    result = qa_chain.invoke(question)
+    memory.save_context({"input": question}, {"output": result})
     return result
     
     
@@ -163,8 +161,8 @@ if __name__ == "__main__":
         uploaded_file = st.file_uploader('Upload a file:', type = ['pdf','docx','txt'],accept_multiple_files = True)
         # print(uploaded_file)
 
-        chunk_size = st.number_input('Chunk size:',min_value = 100,max_value = 2048,value = 512,on_change = clear_history)
-        k = st.number_input('k',min_value = 1, max_value = 20, value = 3,on_change = clear_history)
+        chunk_size = st.number_input('Chunk size:',min_value = 100,max_value = 2048,value = 1024,on_change = clear_history)
+        k = st.number_input('k',min_value = 1, max_value = 20, value = 4,on_change = clear_history)
         add_data = st.button('Add Data',on_click = clear_history)
         if uploaded_file and add_data:
             with st.spinner('Reading, chunking and embedding file...'):

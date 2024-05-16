@@ -22,6 +22,8 @@ load_dotenv(find_dotenv(),override = True)
 
 index_name = "genericdb"
 
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
 def load_document(file):
     import os
     name,extension = os.path.splitext(file)
@@ -63,7 +65,6 @@ def create_embeddings(chunks):
     pc = Pinecone(
         api_key=os.environ.get("PINECONE_API_KEY")
     )
-    
     if index_name not in pc.list_indexes().names():
         print(f'Creating the index {index_name} and the  embeddings')
 
@@ -78,14 +79,13 @@ def create_embeddings(chunks):
              ) 
         ) 
                      
-        PineconeVectorStore.from_documents(
-                chunks, embeddings, index_name=index_name
-            )
-    else:
-        print(f'The index {index_name} already exist')
-     
-    return 
+    PineconeVectorStore.from_documents(
+            chunks, embeddings, index_name=index_name
+        )
+    vector_store = PineconeVectorStore.from_existing_index(index_name, embeddings)
+    return vector_store
 
+     
 def ask_and_get_answer(question,k = 4):
     from langchain_groq import ChatGroq
 
@@ -96,9 +96,9 @@ def ask_and_get_answer(question,k = 4):
     from langchain_core.prompts import PromptTemplate,ChatPromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    
     llm = ChatGroq(temperature=0, model_name="llama3-70b-8192")
-    db3 =  PineconeVectorStore.from_existing_index(index_name, embeddings)
+    db3 =  st.session_state.vector_store
     retriever = db3.as_retriever(search_type = 'similarity',search_kwargs={'k': k})
 
     rephraser_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
@@ -199,8 +199,6 @@ if __name__ == "__main__":
     page_icon='🤖'
     )
     
-    if 'uploaded_status' not in st.session_state:
-        st.session_state.uploaded_status = ""
         
     if 'vector_store' not in st.session_state:
         st.session_state.vector_store = ""
@@ -239,15 +237,19 @@ if __name__ == "__main__":
                         f.write(bytes_data)
                     data = load_document(file_name)
                     chunks = chunk_data(data,chunk_size=chunk_size)
-                    create_embeddings(chunks)
+                    vector_store = create_embeddings(chunks)
+                    st.session_state.vector_store = vector_store
                     st.write(f'Embedding completed for file {file_name}')
                 st.success('File uploaded, chunked and embedded successfully')
                 print('File uploaded, chunked and embedded successfully')
-                st.session_state.uploaded_status = True
-                print(st.session_state.uploaded_status)
                 
-       
-    if st.session_state.uploaded_status == True:
+    try:            
+        vector_store = PineconeVectorStore.from_existing_index(index_name, embeddings)
+        st.session_state.vector_store = vector_store
+    except:
+        vector_store = None
+        st.session_state.vector_store = vector_store
+    if  vector_store is not None:
         
         if st.button("Clear chat history"): 
             clear_chat_history(st.session_state['chat_message_history'])

@@ -1,10 +1,9 @@
 # Load, embed and chat away
 
-Load your preferred PDF documents and specify the chunk size and number of documents you wish to retrieve from the vector database to answer your query. To interact with the document embeddings, simply initiate a conversation with the chatbot.
-Note: To utilize the vector database, you will require a Pinecone API key, which is available for free for a single index.
-Llama3 is used as the LLM through Groq Inference, so please get an API key from Groq
-
-If you planning to deploy this in streamlit cloud, then you need to follow below instructions. If you plan to use this locally, then make sure to set up your environment variables.
+To get started, users can upload their PDF documents and specify the chunk size and number of documents for retrieval from the vector database. The platform utilizes a Streamlit frontend for a user-friendly experience.
+Note: API keys from Groq and Pinecone are required. Llama3 is the LLM used, Groq helps with super fast inference. Pinecone is used as vector database, log in to pinecone website to get an API key(upto one index,
+its free for usage)
+For deployment, you have two options: Streamlit Cloud or local setup. Follow the provided instructions for Streamlit Cloud deployment, or ensure your environment variables are set up for local use.
 
 https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app
 
